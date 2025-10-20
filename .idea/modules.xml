@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/3.代码.iml" filepath="$PROJECT_DIR$/.idea/3.代码.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/gmall2024-realtime.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/gmall2024-realtime.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/learno/learno.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/learno/learno.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-common/realtime-common.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-common/realtime-common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dim/realtime-dim.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dim/realtime-dim.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-base-db/realtime-dwd-base-db.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-base-db/realtime-dwd-base-db.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-base-log/realtime-dwd-base-log.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-base-log/realtime-dwd-base-log.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-interaction-comment-info/realtime-dwd-interaction-comment-info.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-interaction-comment-info/realtime-dwd-interaction-comment-info.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-trade-cart-add/realtime-dwd-trade-cart-add.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-trade-cart-add/realtime-dwd-trade-cart-add.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-trade-order-cancel-detail/realtime-dwd-trade-order-cancel-detail.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-trade-order-cancel-detail/realtime-dwd-trade-order-cancel-detail.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-trade-order-detail/realtime-dwd-trade-order-detail.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-trade-order-detail/realtime-dwd-trade-order-detail.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-trade-order-pay-suc-detail/realtime-dwd-trade-order-pay-suc-detail.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-trade-order-pay-suc-detail/realtime-dwd-trade-order-pay-suc-detail.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-trade-order-refund/realtime-dwd-trade-order-refund.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-trade-order-refund/realtime-dwd-trade-order-refund.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-trade-refund-pay-suc-detail/realtime-dwd-trade-refund-pay-suc-detail.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dwd/realtime-dwd-trade-refund-pay-suc-detail/realtime-dwd-trade-refund-pay-suc-detail.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws-trade-cart-add-uu-window/realtime-dws-trade-cart-add-uu-window.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws-trade-cart-add-uu-window/realtime-dws-trade-cart-add-uu-window.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws-trade-province-order-window/realtime-dws-trade-province-order-window.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws-trade-province-order-window/realtime-dws-trade-province-order-window.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws-trade-sku-order-window/realtime-dws-trade-sku-order-window.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws-trade-sku-order-window/realtime-dws-trade-sku-order-window.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws-traffic-home-detail-page-view-window/realtime-dws-traffic-home-detail-page-view-window.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws-traffic-home-detail-page-view-window/realtime-dws-traffic-home-detail-page-view-window.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws-traffic-source-keyword-page-view-window/realtime-dws-traffic-source-keyword-page-view-window.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws-traffic-source-keyword-page-view-window/realtime-dws-traffic-source-keyword-page-view-window.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws-traffic-vc-ch-ar-is_new-page-view-window/realtime-dws-traffic-vc-ch-ar-is_new-page-view-window.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws-traffic-vc-ch-ar-is_new-page-view-window/realtime-dws-traffic-vc-ch-ar-is_new-page-view-window.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws-user-user-login-window/realtime-dws-user-user-login-window.iml" filepath="$PROJECT_DIR$/gmall2024-realtime-dev/realtime-dws/realtime-dws-user-user-login-window/realtime-dws-user-user-login-window.iml" />
+      <module fileurl="file://$PROJECT_DIR$/sqltest/sqltest.iml" filepath="$PROJECT_DIR$/sqltest/sqltest.iml" />
+    </modules>
+  </component>
+</project>

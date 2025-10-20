@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="realtime-dim" />
+        <module name="learno" />
+        <module name="realtime-dwd-trade-order-refund" />
+        <module name="realtime-dwd-trade-cart-add" />
+        <module name="sqltest" />
+        <module name="realtime-dws-user-user-login-window" />
+        <module name="realtime-dws-traffic-source-keyword-page-view-window" />
+        <module name="realtime-dwd-trade-order-detail" />
+        <module name="realtime-dws-trade-province-order-window" />
+        <module name="realtime-dwd-interaction-comment-info" />
+        <module name="realtime-common" />
+        <module name="realtime-dwd-trade-refund-pay-suc-detail" />
+        <module name="realtime-dws-traffic-home-detail-page-view-window" />
+        <module name="realtime-dwd-base-log" />
+        <module name="realtime-dws-traffic-vc-ch-ar-is_new-page-view-window" />
+        <module name="realtime-dws-trade-sku-order-window" />
+        <module name="realtime-dwd-trade-order-pay-suc-detail" />
+        <module name="realtime-dwd-base-db" />
+        <module name="realtime-dws-trade-cart-add-uu-window" />
+        <module name="realtime-dwd-trade-order-cancel-detail" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="gmall2024-realtime" target="1.8" />
+      <module name="learno" target="8" />
+      <module name="realtime-common" target="1.8" />
+      <module name="realtime-dim" target="1.8" />
+      <module name="realtime-dwd" target="1.8" />
+      <module name="realtime-dwd-base-db" target="1.8" />
+      <module name="realtime-dwd-base-log" target="1.8" />
+      <module name="realtime-dwd-interaction-comment-info" target="1.8" />
+      <module name="realtime-dwd-trade-cart-add" target="1.8" />
+      <module name="realtime-dwd-trade-order-cancel-detail" target="1.8" />
+      <module name="realtime-dwd-trade-order-detail" target="1.8" />
+      <module name="realtime-dwd-trade-order-pay-suc-detail" target="1.8" />
+      <module name="realtime-dwd-trade-order-refund" target="1.8" />
+      <module name="realtime-dwd-trade-refund-pay-suc-detail" target="1.8" />
+      <module name="realtime-dws" target="1.8" />
+      <module name="realtime-dws-trade-cart-add-uu-window" target="1.8" />
+      <module name="realtime-dws-trade-province-order-window" target="1.8" />
+      <module name="realtime-dws-trade-sku-order-window" target="1.8" />
+      <module name="realtime-dws-traffic-home-detail-page-view-window" target="1.8" />
+      <module name="realtime-dws-traffic-source-keyword-page-view-window" target="1.8" />
+      <module name="realtime-dws-traffic-vc-ch-ar-is_new-page-view-window" target="1.8" />
+      <module name="realtime-dws-user-user-login-window" target="1.8" />
+      <module name="sqltest" target="8" />
+    </bytecodeTargetLevel>
+  </component>
+</project>
