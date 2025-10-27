@@ -79,8 +79,8 @@ import org.apache.hadoop.hbase.client.Connection;
  *      将维度数据同步到HBase中
  *
  */
-public class DimApp extends BaseApp {
-    public static void main(String[] args) throws Exception {
+public class DimApp {
+    /*public static void main(String[] args) throws Exception {
         new DimApp().start(10002,4,"dim_app",Constant.TOPIC_DB);
     }
 
@@ -233,5 +233,37 @@ public class DimApp extends BaseApp {
 
         //jsonObjDS.print();
         return jsonObjDS;
+    }*/
+
+
+    public static void main(String[] args) {
+
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
