@@ -9,21 +9,50 @@ import com.atguigu.gmall.realtime.common.util.FlinkSourceUtil;
 import com.atguigu.gmall.realtime.common.util.HBaseUtil;
 import com.atguigu.gmall.realtime.dim.function.HBaseSinkFunction;
 import com.atguigu.gmall.realtime.dim.function.TableProcessFunction;
+import com.sun.org.apache.bcel.internal.generic.NEW;
 import com.ververica.cdc.connectors.mysql.source.MySqlSource;
+import com.ververica.cdc.connectors.mysql.table.StartupOptions;
+import com.ververica.cdc.debezium.JsonDebeziumDeserializationSchema;
+import javafx.util.Builder;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.RichMapFunction;
+import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.api.common.serialization.DeserializationSchema;
+import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.ReadOnlyBroadcastState;
+import org.apache.flink.api.common.time.Time;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.connector.kafka.source.KafkaSource;
+import org.apache.flink.connector.kafka.source.KafkaSourceBuilder;
+import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer;
+import org.apache.flink.runtime.state.hashmap.HashMapStateBackend;
+import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.BroadcastConnectedStream;
 import org.apache.flink.streaming.api.datastream.BroadcastStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
+import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
+import org.apache.flink.streaming.api.functions.co.BroadcastProcessFunction;
+import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
+import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.util.Collector;
 import org.apache.hadoop.hbase.client.Connection;
+import org.apache.kafka.clients.consumer.OffsetResetStrategy;
+import org.apache.kafka.common.protocol.Message;
+
+import java.io.IOException;
+import java.lang.reflect.Array;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.util.*;
 
 /**
  * @author Felix
@@ -79,7 +108,7 @@ import org.apache.hadoop.hbase.client.Connection;
  *      将维度数据同步到HBase中
  *
  */
-public class DimApp {
+public class DimApp extends BaseApp{
     /*public static void main(String[] args) throws Exception {
         new DimApp().start(10002,4,"dim_app",Constant.TOPIC_DB);
     }
@@ -236,34 +265,154 @@ public class DimApp {
     }*/
 
 
-    public static void main(String[] args) {
+
+    public static void main(String[] args) throws Exception {
+        new DimApp().start(10001, 4, "dim_app", Constant.TOPIC_DB);
+    }
+
+    // 过滤掉不需要的字段
+    private static void deleteNoNeedColumns(JSONObject data, String sinkColumns) {
+        List<String> columnList = Arrays.asList(sinkColumns.split(","));
+        Set<Map.Entry<String, Object>> entrySet = data.entrySet();
+        // 使用迭代器删除
+        /*Iterator<Map.Entry<String, Object>> iterator = entrySet.iterator();
+        for(;iterator.hasNext();){
+            Map.Entry<String, Object> next = iterator.next();
+            if(!columnList.contains(next.getKey())){
+                iterator.remove();
+            }
+        }*/
+        entrySet.removeIf(entry -> columnList.contains(entry.getKey()));
 
     }
 
 
+    @Override
+    public void handle(StreamExecutionEnvironment env, DataStreamSource<String> kafkaStrDS) {
+        //TODO 对业务数据的数据类型进行转换和简单的ETL jsonStr->jsonObj
+        SingleOutputStreamOperator<JSONObject> jsonObjDS = etl(kafkaStrDS);
 
+        //TODO 使用flinkCDC读取配置文件中的配置信息
+        SingleOutputStreamOperator<TableProcessDim> tpDS = resdTableProcess(env);
 
+        //TODO 根据配置信息到Hbase中创建或者删除维度表
 
+        tpDS = createHBaseTable(tpDS);
+        //TODO 过滤维度数据
+        SingleOutputStreamOperator<Tuple2<JSONObject, TableProcessDim>> dimDS = connect(jsonObjDS, tpDS);
 
+        //TODO 将维度数据同步到Hbase表中
 
+        writeToHBase(dimDS);
+    }
 
+    private void writeToHBase(SingleOutputStreamOperator<Tuple2<JSONObject, TableProcessDim>> dimDS) {
+        dimDS.addSink(new HBaseSinkFunction());
+    }
 
+    private SingleOutputStreamOperator<Tuple2<JSONObject, TableProcessDim>> connect(SingleOutputStreamOperator<JSONObject> jsonObjDS, SingleOutputStreamOperator<TableProcessDim> tpDS) {
+        //TODO 8.将配置流中的数据进行广播---broadcast
+        MapStateDescriptor<String, TableProcessDim> mapStateDescriptor = new MapStateDescriptor<String, TableProcessDim>("maoStateDescriptor", String.class, TableProcessDim.class);
+        BroadcastStream<TableProcessDim> broadcastDS = tpDS.broadcast(mapStateDescriptor);
 
+        //TODO 9.将主流的业务数据和广播流中的配置信息进行关联---connect
+        BroadcastConnectedStream<JSONObject, TableProcessDim> connectDS = jsonObjDS.connect(broadcastDS);
 
+        //TODO 10.处理关联后的数据（判断是否为维度数据）
+        //10.1 processElement:处理主流业务数据                   根据表名到广播状态中读取配置信息，判断是否为维度
+        //10.2 processBroadcastElement:处理广播流配置信息数据      将配置信息数据放到广播状态中  k:维度表名  v:一个配置对象
+        SingleOutputStreamOperator<Tuple2<JSONObject, TableProcessDim>> dimDS = connectDS.process(
+                new TableProcessFunction(mapStateDescriptor)
+        );
+        return dimDS;
+    }
 
+    private SingleOutputStreamOperator<TableProcessDim> createHBaseTable(SingleOutputStreamOperator<TableProcessDim> tpDS) {
+        tpDS = tpDS.map(new RichMapFunction<TableProcessDim, TableProcessDim>() {
 
+            private Connection hbaseConn;
+            @Override
+            public void open(Configuration parameters) throws Exception {
+                hbaseConn = HBaseUtil.getHbaseConnection();
+            }
 
+            @Override
+            public void close() throws Exception {
+                HBaseUtil.closeHbaseConnection(hbaseConn);
+            }
 
+            @Override
+            public TableProcessDim map(TableProcessDim tableProcessDim) throws Exception {
+                // 获取对维度表的操作类型
+                String op = tableProcessDim.getOp();
+                // 获取对HBase进行操作的维度表表名
+                String sinkTable = tableProcessDim.getSinkTable();
+                // 获取在HBase中创建表所需要的列族
+                String[] sinkFamilies = tableProcessDim.getSinkFamily().split(",");
+                if("d".equals(op)){
+                    // 从配置表中删除了一条数据，需要在HBase中将对应的维度表删除
+                    HBaseUtil.dropHbaseTable(hbaseConn, Constant.HBASE_NAMESPACE, sinkTable);
+                }else if ("r".equals(op) || "c".equals(op)){
+                    // 从配置表中读取或者添加了一条数据，需要在HBase中将对应的维度表创建出来
+                    HBaseUtil.createHbaseTable(hbaseConn, Constant.HBASE_NAMESPACE, sinkTable, sinkFamilies);
+                }else {
+                    // 从配置表中修改了一条数据，需要在HBase中将对应的维度表进行修改,操作为先删除再创建
+                    HBaseUtil.dropHbaseTable(hbaseConn, Constant.HBASE_NAMESPACE, sinkTable);
+                    HBaseUtil.createHbaseTable(hbaseConn, Constant.HBASE_NAMESPACE, sinkTable, sinkFamilies);
+                }
+                return tableProcessDim;
+            }
+        }).setParallelism(1);
+        return tpDS;
+    }
 
+    private SingleOutputStreamOperator<TableProcessDim> resdTableProcess(StreamExecutionEnvironment env) {
+        //5.1 创建MysqlSource对象
+        MySqlSource<String> mySqlSource = FlinkSourceUtil.getMySqlSource("gmall2024_config", "gmall2024_config.table_process_dim");
+        //5.2 消费数据，封装为流
+        DataStreamSource<String> mysqlStrDS = env.fromSource(mySqlSource, WatermarkStrategy.noWatermarks(), "mysql_source").setParallelism(1);
+        //TODO 6.对配置流的配置信息数据的类型进行转换 jsonStr->实体类对象
+        SingleOutputStreamOperator<TableProcessDim> tpDS = mysqlStrDS.map(new MapFunction<String, TableProcessDim>() {
+            @Override
+            public TableProcessDim map(String jsonStr) throws Exception {
+                JSONObject jsonObj = JSON.parseObject(jsonStr);
+                String op = jsonObj.getString("op");
+                TableProcessDim tableProcessDim = null;
+                if ("d".equals(op)) {
+                    // 对维度表进行删除操作，那么就应该读取json中before的配置信息
+                    tableProcessDim = jsonObj.getObject("before", TableProcessDim.class);
+                } else {
+                    // 对配置表进行增删改的操作，应该读取json中after的配置信息
+                    tableProcessDim = jsonObj.getObject("after", TableProcessDim.class);
+                }
+                tableProcessDim.setOp(op);
+                return tableProcessDim;
+            }
+        }).setParallelism(1);
+        return tpDS;
+    }
 
+    private SingleOutputStreamOperator<JSONObject> etl(DataStreamSource<String> kafkaStrDS) {
+        SingleOutputStreamOperator<JSONObject> jsonObjDS = kafkaStrDS.process(new ProcessFunction<String, JSONObject>() {
+            @Override
+            public void processElement(String jsonStr, ProcessFunction<String, JSONObject>.Context context, Collector<JSONObject> out) throws Exception {
+                JSONObject jsonObj = JSON.parseObject(jsonStr);
+                String db = jsonObj.getString("database");
+                String type = jsonObj.getString("type");
+                String data = jsonObj.getString("data");
 
-
-
-
-
-
-
-
-
-
+                if ("gmall2024".equals(db)
+                        && ("insert".equals(type)
+                        || "update".equals(type)
+                        || "delete".equals(type)
+                        || "bootstrap-insert".equals(type))
+                        && data != null
+                        && data.length() > 2
+                ) {
+                    out.collect(jsonObj);
+                }
+            }
+        });
+        return jsonObjDS;
+    }
 }

@@ -21,13 +21,13 @@ public class HBaseSinkFunction extends RichSinkFunction<Tuple2<JSONObject, Table
     private Jedis jedis;
     @Override
     public void open(Configuration parameters) throws Exception {
-        hbaseConn = HBaseUtil.getHBaseConnection();
+        hbaseConn = HBaseUtil.getHbaseConnection();
         jedis = RedisUtil.getJedis();
     }
 
     @Override
     public void close() throws Exception {
-        HBaseUtil.closeHBaseConnection(hbaseConn);
+        HBaseUtil.closeHbaseConnection(hbaseConn);
         RedisUtil.closeJedis(jedis);
     }
 

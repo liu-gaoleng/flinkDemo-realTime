@@ -22,7 +22,7 @@ import java.util.Set;
  * 操作HBase的工具类
  */
 public class HBaseUtil {
-    //获取Hbase连接
+    /*//获取Hbase连接
     public static Connection getHBaseConnection() throws IOException {
         Configuration conf = new Configuration();
         conf.set("hbase.zookeeper.quorum", "hadoop102,hadoop103,hadoop104");
@@ -106,7 +106,7 @@ public class HBaseUtil {
         }
     }
 
-    /**
+    *//**
      * 向表中put数据
      *
      * @param hbaseConn 连接对象
@@ -115,7 +115,7 @@ public class HBaseUtil {
      * @param rowKey    rowkey
      * @param family    列族
      * @param jsonObj   要put的数据
-     */
+     *//*
     public static void putRow(Connection hbaseConn, String namespace, String tableName, String rowKey, String family, JSONObject jsonObj) {
         TableName tableNameObj = TableName.valueOf(namespace, tableName);
         try (Table table = hbaseConn.getTable(tableNameObj)) {
@@ -146,7 +146,7 @@ public class HBaseUtil {
         }
     }
 
-    /**
+    *//**
      * 根据rowkey从Hbase表中查询一行数据
      * @param hbaseConn             hbase连接对象
      * @param namespace             表空间
@@ -156,7 +156,7 @@ public class HBaseUtil {
      * @param isUnderlineToCamel    是否将下划线转换为驼峰命名
      * @return
      * @param <T>
-     */
+     *//*
     public static <T>T getRow(Connection hbaseConn, String namespace, String tableName, String rowKey,Class<T> clz,boolean... isUnderlineToCamel){
         boolean defaultIsUToC = false;  // 默认不执行下划线转驼峰
 
@@ -188,14 +188,14 @@ public class HBaseUtil {
         return null;
     }
 
-    /**
+    *//**
      * 以异步的方式 从HBase维度表中查询维度数据
      * @param asyncConn     异步操作HBase的连接
      * @param namespace     表空间
      * @param tableName     表名
      * @param rowKey        rowkey
      * @return
-     */
+     *//*
     public static JSONObject readDimAsync(AsyncConnection asyncConn,String namespace, String tableName, String rowKey){
         try {
             TableName tableNameObj = TableName.valueOf(namespace, tableName);
@@ -223,6 +223,127 @@ public class HBaseUtil {
         JSONObject jsonObj = getRow(hBaseConnection, Constant.HBASE_NAMESPACE, "dim_base_trademark", "1", JSONObject.class);
         System.out.println(jsonObj);
         closeHBaseConnection(hBaseConnection);
+    }*/
+
+    // 创建链接
+    public static Connection getHbaseConnection() throws IOException {
+        Configuration conf = new Configuration();
+        conf.set("hbase.zookeeper.quorum", "hadoop102, hadoop103, hadoop104");
+        Connection hbaseConn = ConnectionFactory.createConnection(conf);
+        return hbaseConn;
     }
+    // 关闭连接
+    public static void closeHbaseConnection(Connection hbaseConn) throws IOException {
+        if(hbaseConn != null && !hbaseConn.isClosed()){
+            hbaseConn.close();
+        }
+    }
+    // 建表
+
+    public static void createHbaseTable(Connection hbaseConn, String namespace, String tableName, String ... families){
+        if(families.length < 1){
+            System.out.println("至少需要一个列族");
+            return;
+        }
+        try (Admin admin = hbaseConn.getAdmin()){
+            // 判断要创建的表是否已经存在
+            TableName tableNameObj = TableName.valueOf(namespace, tableName);
+            if(admin.tableExists(tableNameObj)){
+                System.out.println("要创建表空间下"+namespace+"的表"+tableName+"已存在");
+            }
+            TableDescriptorBuilder tableDescriptorBuilder = TableDescriptorBuilder.newBuilder(tableNameObj);
+
+            for (String family : families) {
+                ColumnFamilyDescriptorBuilder columnFamilyDescriptorBuilder = ColumnFamilyDescriptorBuilder.newBuilder(Bytes.toBytes(family));
+                tableDescriptorBuilder.setColumnFamily(columnFamilyDescriptorBuilder.build());
+            }
+
+            admin.createTable(tableDescriptorBuilder.build());
+
+            System.out.println("创建表空间下"+namespace+"的表"+tableName+"成功");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+
+    // 删除表
+    public static void dropHbaseTable(Connection hbaseConn, String namespace, String tableName){
+        try (Admin admin = hbaseConn.getAdmin()) {
+            // 判断要删除的表是否存在
+            TableName tableNameObj = TableName.valueOf(namespace, tableName);
+            if(!admin.tableExists(tableNameObj)){
+                System.out.println("要删除表空间下"+namespace+"的表"+tableName+"不存在");
+                return;
+            }
+            admin.disableTable(tableNameObj);
+            admin.deleteTable(tableNameObj);
+            System.out.println("要删除表空间下"+namespace+"的表"+tableName+"成功");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    // 向表中put数据
+    public static void putRow(Connection hbaseConn, String namespace, String tableName, String rowKey, String family, JSONObject jsonObj){
+        TableName tableNameObj = TableName.valueOf(namespace, tableName);
+        try (Table table = hbaseConn.getTable(tableNameObj)){
+            final Put put = new Put(Bytes.toBytes(rowKey));
+            final Set<String> columns = jsonObj.keySet();
+            for (String column : columns) {
+                String value = jsonObj.getString(column);
+                if(StringUtils.isNoneEmpty(value)){
+                    put.addColumn(Bytes.toBytes(family), Bytes.toBytes(column), Bytes.toBytes(value));
+                }
+            }
+            table.put(put);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    // 从表中删除数据
+    public static void delRow(Connection hbaseConn, String namespace, String tableName, String rowKey){
+        TableName tableNameObj = TableName.valueOf(namespace, tableName);
+        try (Table table = hbaseConn.getTable(tableNameObj)){
+            Delete delete = new Delete(Bytes.toBytes(rowKey));
+            table.delete(delete);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 }
