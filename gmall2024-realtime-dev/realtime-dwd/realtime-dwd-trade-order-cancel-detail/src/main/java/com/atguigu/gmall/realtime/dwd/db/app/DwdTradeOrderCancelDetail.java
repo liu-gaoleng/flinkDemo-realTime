@@ -114,5 +114,6 @@ public class DwdTradeOrderCancelDetail extends BaseSQLApp {
 
         result.executeInsert(Constant.TOPIC_DWD_TRADE_ORDER_CANCEL);
 
+
     }
 }
