@@ -19,7 +19,7 @@ import java.time.Duration;
  */
 public class Test02_SQL_JOIN {
     public static void main(String[] args) {
-        //TODO 1.基本环境准备
+        /*//TODO 1.基本环境准备
         //1.1 指定流处理环境
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         //1.2 设置并行度
@@ -103,7 +103,121 @@ public class Test02_SQL_JOIN {
                 "  'value.format' = 'json'\n" +
                 ")");
         //9.2 写入
-        tableEnv.executeSql("insert into emp_dept select e.empno,e.ename,d.deptno,d.dname from emp e left join dept d on e.deptno = d.deptno");
+        tableEnv.executeSql("insert into emp_dept select e.empno,e.ename,d.deptno,d.dname from emp e left join dept d on e.deptno = d.deptno");*/
+
+
+
+
+
+
+
+
+
+
+
+        //TODO 1.基本环境准备
+        //1.1指定流处理环境
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        //1.2设置并行度
+        env.setParallelism(1);
+        //1.3指定表处理环境
+        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(env);
+        //1.4设置状态保留时间
+        tableEnv.getConfig().setIdleStateRetention(Duration.ofSeconds(10));
+        //TODO 2.检查点相关配置（略）
+        //TODO 3.从指定的网络端口读取员工数据，并转换为动态表
+        SingleOutputStreamOperator<Emp> empDS = env
+                .socketTextStream("hadoop102", 8888)
+                .map(new MapFunction<String, Emp>() {
+                    @Override
+                    public Emp map(String lineStr) throws Exception {
+                        String[] fieldArr = lineStr.split(",");
+                        return new Emp(Integer.valueOf(fieldArr[0]), fieldArr[1], Integer.valueOf(fieldArr[2]), Long.valueOf(fieldArr[3]));
+                    }
+                });
+        tableEnv.createTemporaryView("env", empDS);
+
+        //TODO 4.从指定的网络端口读取部门数据，并转换为动态表
+        SingleOutputStreamOperator<Dept> deptDS = env
+                .socketTextStream("hadoop102", 8889)
+                .map(new MapFunction<String, Dept>() {
+                    @Override
+                    public Dept map(String lineStr) throws Exception {
+                        String[] fieldArr = lineStr.split(",");
+                        return new Dept(Integer.valueOf(fieldArr[0]), fieldArr[1], Long.valueOf(fieldArr[2]));
+                    }
+                });
+        tableEnv.createTemporaryView("dept", deptDS);
+
+        //TODO 5.通过flinkSql进行内连接
+        //如果使用的普通的内外连接，底层会为参与连接的两张表各自维护一个状态，用于存放两张表的数据，默认情况下，状态永不会失效
+        //在生产环境中，一定要设置状态的保留时间
+        /*tableEnv.executeSql("select e.empno, e.ename, d.deptno, d.dname from emp e join dept d on e.deptno = d.deptno");*/
+
+        //TODO 6.通过flinkSql进行左外连接
+        /*tableEnv.executeSql("select e.empno, e.ename, d.deptno, d.dname from emp e left join dept d on e.deptno = d.deptno");*/
+
+        //TODO 7.通过flinkSql进行右外连接
+        /*tableEnv.executeSql("select e.empno, e.ename, d.deptno, d.dname from emp e right join dept d on e.deptno = d.deptno");*/
+
+        //TODO 8.通过flinkSql进行全外连接
+        /*tableEnv.executeSql("select e.empno, e.ename, d.deptno, d.dname from emp e full join dept d on e.deptno = d.deptno");*/
+
+
+        //TODO 9.将左外连接的结果写入到kafka主题中
+        //9.1 创建一个动态表和要写入的kafka主题进行映射
+        tableEnv.executeSql("CREATE TABLE emp_dept (\n" +
+                "  empno integer,\n" +
+                "  ename string,\n" +
+                "  deptno integer,\n" +
+                "  dname string,\n" +
+                "  PRIMARY KEY (empno) NOT ENFORCED\n" +
+                ") WITH (\n" +
+                "  'connector' = 'upsert-kafka',\n" +
+                "  'topic' = 'first',\n" +
+                "  'properties.bootstrap.servers' = 'hadoop102:9092',\n" +
+                "  'key.format' = 'json',\n" +
+                "  'value.format' = 'json'\n" +
+                ")");
+        //9.2写入
+        tableEnv.executeSql("insert into emp_dept select e.empno, e.ename, d.deptno, d.dname from emp e left join dept d on e.deptno = d.deptno");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     }
