@@ -118,7 +118,6 @@ public class DwdTradeRefundPaySucDetail extends BaseSQLApp {
                 ")" + SQLUtil.getUpsertKafkaDDL(Constant.TOPIC_DWD_TRADE_REFUND_PAYMENT_SUCCESS));
         result.executeInsert(Constant.TOPIC_DWD_TRADE_REFUND_PAYMENT_SUCCESS);
 
-
     }
 
 
