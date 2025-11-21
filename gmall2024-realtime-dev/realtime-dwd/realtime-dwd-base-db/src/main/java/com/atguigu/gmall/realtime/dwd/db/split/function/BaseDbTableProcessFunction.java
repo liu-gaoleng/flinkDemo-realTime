@@ -3,6 +3,7 @@ package com.atguigu.gmall.realtime.dwd.db.split.function;
 import com.alibaba.fastjson.JSONObject;
 import com.atguigu.gmall.realtime.common.bean.TableProcessDwd;
 import com.atguigu.gmall.realtime.common.util.JdbcUtil;
+import com.sun.javafx.sg.prism.web.NGWebView;
 import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.ReadOnlyBroadcastState;
@@ -21,7 +22,137 @@ import java.util.*;
  */
 public class BaseDbTableProcessFunction extends BroadcastProcessFunction<JSONObject, TableProcessDwd, Tuple2<JSONObject, TableProcessDwd>> {
 
+
+    private Map<String, TableProcessDwd> configMap = new HashMap<>();
+
     private MapStateDescriptor<String, TableProcessDwd> mapStateDescriptor;
+    public BaseDbTableProcessFunction(MapStateDescriptor<String, TableProcessDwd> mapStateDescriptor) {
+        this.mapStateDescriptor = mapStateDescriptor;
+    }
+
+    @Override
+    public void open(Configuration parameters) throws Exception {
+        Connection mySQLConnection = JdbcUtil.getMySQLConnection();
+        List<TableProcessDwd> tableProcessDwdList = JdbcUtil.queryList(mySQLConnection, "select * from gmall2024_config.table_process_dwd", TableProcessDwd.class, true);
+        for (TableProcessDwd tableProcessDwd : tableProcessDwdList) {
+            String sourceTable = tableProcessDwd.getSourceTable();
+            String sourceType = tableProcessDwd.getSourceType();
+            String key = getKey(sourceTable, sourceType);
+            configMap.put(key, tableProcessDwd);
+        }
+        JdbcUtil.closeMySQLConnection(mySQLConnection);
+    }
+
+    private String getKey(String sourceTable, String sourceType) {
+        String key = sourceTable + "" + sourceType;
+        return key;
+    }
+
+    //处理主流业务数据
+    @Override
+    public void processElement(JSONObject jsonObj, BroadcastProcessFunction<JSONObject, TableProcessDwd, Tuple2<JSONObject, TableProcessDwd>>.ReadOnlyContext readOnlyContext, Collector<Tuple2<JSONObject, TableProcessDwd>> collector) throws Exception {
+        //获取业务数据表名
+        String table = jsonObj.getString("table");
+        //获取业务数据操作类型
+        String type = jsonObj.getString("type");
+        //拼接key
+        String key = getKey(table, type);
+        //获取广播状态
+        ReadOnlyBroadcastState<String, TableProcessDwd> broadcastState = readOnlyContext.getBroadcastState(mapStateDescriptor);
+        //从广播状态或configMap中匹配是否为需要写到kafka主题中的简单逻辑事实表
+        TableProcessDwd tp = null;
+        if((tp = broadcastState.get(key)) != null || (tp = configMap.get(key)) != null){
+            //是要处理的简单逻辑事实表，传递到下游
+            JSONObject dataJsonObj = jsonObj.getJSONObject("data");
+            //过滤掉不需要传入的数据
+            String sinkColumns = tp.getSinkColumns();
+            deleteNotNeedColumns(dataJsonObj, sinkColumns);
+            Long ts = jsonObj.getLong("ts");
+            //将事件时间ts补充到data对象上
+            dataJsonObj.put("ts", ts);
+            collector.collect(Tuple2.of(dataJsonObj, tp));
+        }
+    }
+
+    //处理广播流配置信息数据
+    @Override
+    public void processBroadcastElement(TableProcessDwd tp, BroadcastProcessFunction<JSONObject, TableProcessDwd, Tuple2<JSONObject, TableProcessDwd>>.Context context, Collector<Tuple2<JSONObject, TableProcessDwd>> collector) throws Exception {
+        //获取对配置信息进行的操作类型
+        String op = tp.getOp();
+        //获取广播状态
+        BroadcastState<String, TableProcessDwd> broadcastState = context.getBroadcastState(mapStateDescriptor);
+        //获取事实表表名
+        String sourceTable = tp.getSourceTable();
+        //获取配置信息操作类型
+        String sourceType = tp.getSourceType();
+        //拼接key
+        String key = getKey(sourceTable, sourceType);
+
+        if("d".equals(op)){
+            //对配置信息进行了删除操作，那么要对应的将广播状态和configMap中的配置信息数据删除
+            broadcastState.remove(key);
+            configMap.remove(key);
+        }else {
+            //对配置信息进行读取、更新或添加操作，那么要对应的将广播状态和configMap中的配置信息数据进行更新
+            broadcastState.put(key, tp);
+            configMap.put(key, tp);
+        }
+
+
+    }
+
+
+
+
+    //过滤掉不需要传递的字段
+    //dataJsonObj  {"tm_name":"Redmi","create_time":"2021-12-14 00:00:00","logo_url":"555","id":1}
+    //sinkColumns  id,tm_name
+    private static void deleteNotNeedColumns(JSONObject dataJsonObj, String sinkColumns) {
+        List<String> columnList = Arrays.asList(sinkColumns.split(","));
+
+        Set<Map.Entry<String, Object>> entrySet = dataJsonObj.entrySet();
+
+        entrySet.removeIf(entry -> !columnList.contains(entry.getKey()));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /*private MapStateDescriptor<String, TableProcessDwd> mapStateDescriptor;
 
     private Map<String, TableProcessDwd> configMap = new HashMap<>();
 
@@ -113,5 +244,6 @@ public class BaseDbTableProcessFunction extends BroadcastProcessFunction<JSONObj
 
         entrySet.removeIf(entry-> !columnList.contains(entry.getKey()));
 
-    }
+    }*/
 }
+

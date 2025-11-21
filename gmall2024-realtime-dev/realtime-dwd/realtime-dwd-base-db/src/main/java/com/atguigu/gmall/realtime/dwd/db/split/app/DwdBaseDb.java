@@ -19,6 +19,7 @@ import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
+import org.apache.flink.streaming.api.functions.co.BroadcastProcessFunction;
 import org.apache.flink.util.Collector;
 
 /**
@@ -30,8 +31,122 @@ import org.apache.flink.util.Collector;
  *
  */
 public class DwdBaseDb extends BaseApp {
-
     public static void main(String[] args) throws Exception {
+        new DwdBaseDb().start(10019, 4, "dwd_base_db", Constant.TOPIC_DB);
+    }
+
+
+
+    @Override
+    public void handle(StreamExecutionEnvironment env, DataStreamSource<String> kafkaStrDS) {
+
+        //TODO 将从kafka的topic_db主题中读取到的数据流进行类型转换并进行简单的ETL jsonStr->jsonObj
+        SingleOutputStreamOperator<JSONObject> jsonObjDS = kafkaStrDS.process(
+                new ProcessFunction<String, JSONObject>() {
+                    @Override
+                    public void processElement(String jsonStr, ProcessFunction<String, JSONObject>.Context context, Collector<JSONObject> collector) throws Exception {
+                        try {
+                            JSONObject jsonObj = JSON.parseObject(jsonStr);
+                            String type = jsonObj.getString("type");
+                            if (!type.startsWith("bootstrap-")) {
+                                collector.collect(jsonObj);
+                            }
+                        } catch (Exception e) {
+                            throw new RuntimeException("这不是一个标准的json");
+                        }
+                    }
+                }
+        );
+
+        //TODO 使用flinkCDC读取配置表中的配置信息
+        //创建MySqlSource对象
+        MySqlSource<String> mySqlSource = FlinkSourceUtil.getMySqlSource("gmall2024_config", "table_process_dwd");
+        //读取数据 封装为流
+        DataStreamSource<String> mysqlStrDS = env.fromSource(mySqlSource, WatermarkStrategy.noWatermarks(), "mysql_source");
+        //对流中的数据进行类型转换 jsonStr->实体类对象
+        SingleOutputStreamOperator<TableProcessDwd> tpDS = mysqlStrDS.map(
+                new MapFunction<String, TableProcessDwd>() {
+                    @Override
+                    public TableProcessDwd map(String jsonStr) throws Exception {
+                        //先将jsonStr转换为jsonObj，在转换为实体类对象
+                        JSONObject jsonObj = JSON.parseObject(jsonStr);
+                        //获取操作类型
+                        String op = jsonObj.getString("op");
+                        TableProcessDwd tp = null;
+                        if("d".equals(op)){
+                            // 对配置表进行了删除操作，需要从before中获取对应的配置信息
+                            tp = jsonObj.getObject("before", TableProcessDwd.class);
+                        }else {
+                            // 对配置表进行了读取、添加、修改操作，需要从after中获取对应的配置信息
+                            tp = jsonObj.getObject("after", TableProcessDwd.class);
+                        }
+                        return tp;
+
+                    }
+                }
+        );
+
+        //TODO 将配置信息流进行广播 ---broadcast
+        MapStateDescriptor<String, TableProcessDwd> mapStateDescriptor = new MapStateDescriptor<String, TableProcessDwd>("mapStateDescriptor", String.class, TableProcessDwd.class);
+        BroadcastStream<TableProcessDwd> broadcastDS = tpDS.broadcast(mapStateDescriptor);
+
+        //TODO 将主流和广播后的配置信息流进行关联 ---connect
+        BroadcastConnectedStream<JSONObject, TableProcessDwd> connectDS = jsonObjDS.connect(broadcastDS);
+
+        //TODO 对关联后的数据进行处理 ---process
+        SingleOutputStreamOperator<Tuple2<JSONObject, TableProcessDwd>> splitDS = connectDS.process(new BaseDbTableProcessFunction(mapStateDescriptor));
+
+        //TODO 将处理完成的简单逻辑事实表流写到kafka的不同主题中
+        splitDS.sinkTo(FlinkSinkUtil.getKafkaSink());
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /*public static void main(String[] args) throws Exception {
         new DwdBaseDb().start(10019,
                 4,
                 "dwd_base_db",
@@ -110,5 +225,5 @@ public class DwdBaseDb extends BaseApp {
 
 
 
-    }
+    }*/
 }
