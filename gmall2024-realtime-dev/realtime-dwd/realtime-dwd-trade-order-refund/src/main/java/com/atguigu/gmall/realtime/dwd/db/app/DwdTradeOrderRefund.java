@@ -115,7 +115,6 @@ public class DwdTradeOrderRefund extends BaseSQLApp {
 
         result.executeInsert(Constant.TOPIC_DWD_TRADE_ORDER_REFUND);
 
-
     }
 
 }
