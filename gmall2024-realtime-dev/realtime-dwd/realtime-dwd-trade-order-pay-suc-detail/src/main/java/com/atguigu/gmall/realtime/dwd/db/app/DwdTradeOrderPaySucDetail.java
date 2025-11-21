@@ -125,4 +125,5 @@ public class DwdTradeOrderPaySucDetail extends BaseSQLApp {
         result.executeInsert(Constant.TOPIC_DWD_TRADE_ORDER_PAYMENT_SUCCESS);
 
     }
+
 }
