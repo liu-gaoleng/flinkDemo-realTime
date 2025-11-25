@@ -35,8 +35,183 @@ import org.apache.flink.util.Collector;
  * 首页、详情页独立访客聚合统计
  */
 public class DwsTrafficHomeDetailPageViewWindow extends BaseApp {
-
     public static void main(String[] args) throws Exception {
+        new DwsTrafficHomeDetailPageViewWindow().start(10023,
+                4,
+                "dws_traffic_home_detail_page_view_window",
+                Constant.TOPIC_DWD_TRAFFIC_PAGE);
+    }
+
+
+    @Override
+    public void handle(StreamExecutionEnvironment env, DataStreamSource<String> kafkaStrDS) {
+        //TODO 从kafka主题dwd层日志事实表读取日志数据并进行类型转换 jsonStr->jsonObj
+        SingleOutputStreamOperator<JSONObject> jsonObjDS = kafkaStrDS.map(JSON::parseObject);
+
+        //TODO 过滤出首页和详情页的数据
+        SingleOutputStreamOperator<JSONObject> filterDS = jsonObjDS.filter(
+                new FilterFunction<JSONObject>() {
+                    @Override
+                    public boolean filter(JSONObject jsonObject) throws Exception {
+                        String pageId = jsonObject.getJSONObject("page").getString("page_id");
+                        return "home".equals(pageId) || "good_detail".equals(pageId);
+
+                    }
+                });
+
+        //TODO 指定watermark生成策略以及提取事件时间字段
+        SingleOutputStreamOperator<JSONObject> withWatermarkDS = filterDS.assignTimestampsAndWatermarks(WatermarkStrategy
+                .<JSONObject>forMonotonousTimestamps()
+                .withTimestampAssigner(new SerializableTimestampAssigner<JSONObject>() {
+                    @Override
+                    public long extractTimestamp(JSONObject jsonObject, long l) {
+
+                        return jsonObject.getLong("ts");
+                    }
+                }));
+
+        //TODO 按照mid进行分组
+        KeyedStream<JSONObject, String> keyedDS = withWatermarkDS.keyBy(jsonObject -> jsonObject.getJSONObject("common").getString("mid"));
+
+        //TODO 使用flink状态编程判断是否为独立访客 并将结果封装为实体类对象
+        SingleOutputStreamOperator<TrafficHomeDetailPageViewBean> beanDS = keyedDS.process(
+                new KeyedProcessFunction<String, JSONObject, TrafficHomeDetailPageViewBean>() {
+                    private ValueState<String> homeLastVisitDateState;
+                    private ValueState<String> detailLastVisitDateState;
+
+                    @Override
+                    public void open(Configuration parameters) throws Exception {
+                        ValueStateDescriptor<String> homeValueStateDescriptor = new ValueStateDescriptor<String>("homeLastVisitDateState", String.class);
+                        homeValueStateDescriptor.enableTimeToLive(StateTtlConfig.newBuilder(Time.days(1)).build());
+                        homeLastVisitDateState = getRuntimeContext().getState(homeValueStateDescriptor);
+
+                        ValueStateDescriptor<String> detailValueStateDescriptor = new ValueStateDescriptor<String>("detailLastVisitDateState", String.class);
+                        detailValueStateDescriptor.enableTimeToLive(StateTtlConfig.newBuilder(Time.days(1)).build());
+                        detailLastVisitDateState = getRuntimeContext().getState(detailValueStateDescriptor);
+                    }
+
+                    @Override
+                    public void processElement(JSONObject jsonObj, KeyedProcessFunction<String, JSONObject, TrafficHomeDetailPageViewBean>.Context context, Collector<TrafficHomeDetailPageViewBean> collector) throws Exception {
+                        String pageId = jsonObj.getJSONObject("page").getString("page_id");
+                        //获取此次访问日期
+                        Long ts = jsonObj.getLong("ts");
+                        String curVisitDate = DateFormatUtil.tsToDate(ts);
+                        Long homeUvCt = 0L;
+                        Long detailUvCt = 0L;
+
+                        if ("home".equals(pageId)) {
+                            //获取首页上次访问日期
+                            String homeLastVisitDate = homeLastVisitDateState.value();
+                            //判断是否为首页的独立访客
+                            if (StringUtils.isEmpty(homeLastVisitDate) || !homeLastVisitDate.equals(curVisitDate)) {
+                                homeUvCt = 1L;
+                                homeLastVisitDateState.update(curVisitDate);
+                            }
+                        } else {
+                            //获取详情页上次访问日期
+                            String detailLastVisitDate = detailLastVisitDateState.value();
+                            //判断是否为详情页独立访客
+                            if (StringUtils.isEmpty(detailLastVisitDate) || !detailLastVisitDate.equals(curVisitDate)) {
+                                detailUvCt = 1L;
+                                detailLastVisitDateState.update(curVisitDate);
+                            }
+                        }
+                        if (homeUvCt != 0 || detailUvCt != 0) {
+                            collector.collect(new TrafficHomeDetailPageViewBean(
+                                    "", "", "", homeUvCt, detailUvCt, ts
+                            ));
+                        }
+
+                    }
+                }
+        );
+
+        //TODO 开窗
+        AllWindowedStream<TrafficHomeDetailPageViewBean, TimeWindow> windowDS
+                = beanDS.windowAll(TumblingEventTimeWindows.of(org.apache.flink.streaming.api.windowing.time.Time.seconds(10)));
+
+        //TODO 聚合
+        SingleOutputStreamOperator<TrafficHomeDetailPageViewBean> reduceDS = windowDS.reduce(new ReduceFunction<TrafficHomeDetailPageViewBean>() {
+                                                                                               @Override
+                                                                                               public TrafficHomeDetailPageViewBean reduce(TrafficHomeDetailPageViewBean value1, TrafficHomeDetailPageViewBean value2) throws Exception {
+                                                                                                   value1.setHomeUvCt(value1.getHomeUvCt() + value2.getHomeUvCt());
+                                                                                                   value1.setGoodDetailUvCt(value1.getGoodDetailUvCt() + value2.getGoodDetailUvCt());
+                                                                                                   return value1;
+
+                                                                                               }
+                                                                                           },
+                new AllWindowFunction<TrafficHomeDetailPageViewBean, TrafficHomeDetailPageViewBean, TimeWindow>() {
+                    @Override
+                    public void apply(TimeWindow timeWindow, Iterable<TrafficHomeDetailPageViewBean> iterable, Collector<TrafficHomeDetailPageViewBean> collector) throws Exception {
+                        TrafficHomeDetailPageViewBean pageViewBean = iterable.iterator().next();
+                        String stt = DateFormatUtil.tsToDateTime(timeWindow.getStart());
+                        String edt = DateFormatUtil.tsToDateTime(timeWindow.getEnd());
+                        String curDate = DateFormatUtil.tsToDate(timeWindow.getStart());
+                        pageViewBean.setStt(stt);
+                        pageViewBean.setEdt(edt);
+                        pageViewBean.setCurDate(curDate);
+
+                        collector.collect(pageViewBean);
+                    }
+                }
+        );
+
+        //TODO 将聚合结果写到Doris表中
+        reduceDS
+                .map(new BeanToJsonStrMapFunction<>())
+                .sinkTo(FlinkSinkUtil.getDorisSink("dws_traffic_home_detail_page_view_window"));
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /*public static void main(String[] args) throws Exception {
         new DwsTrafficHomeDetailPageViewWindow().start(
                 10023,
                 4,
@@ -161,5 +336,5 @@ public class DwsTrafficHomeDetailPageViewWindow extends BaseApp {
         reduceDS
                 .map(new BeanToJsonStrMapFunction<TrafficHomeDetailPageViewBean>())
                 .sinkTo(FlinkSinkUtil.getDorisSink("dws_traffic_home_detail_page_view_window"));
-    }
+    }*/
 }
