@@ -22,7 +22,7 @@ import java.util.Set;
  * 操作HBase的工具类
  */
 public class HBaseUtil {
-    /*//获取Hbase连接
+    //获取Hbase连接
     public static Connection getHBaseConnection() throws IOException {
         Configuration conf = new Configuration();
         conf.set("hbase.zookeeper.quorum", "hadoop102,hadoop103,hadoop104");
@@ -106,7 +106,7 @@ public class HBaseUtil {
         }
     }
 
-    *//**
+    /*
      * 向表中put数据
      *
      * @param hbaseConn 连接对象
@@ -114,8 +114,8 @@ public class HBaseUtil {
      * @param tableName 表名
      * @param rowKey    rowkey
      * @param family    列族
-     * @param jsonObj   要put的数据
-     *//*
+     * @param jsonObj   要put的数据*/
+
     public static void putRow(Connection hbaseConn, String namespace, String tableName, String rowKey, String family, JSONObject jsonObj) {
         TableName tableNameObj = TableName.valueOf(namespace, tableName);
         try (Table table = hbaseConn.getTable(tableNameObj)) {
@@ -146,7 +146,7 @@ public class HBaseUtil {
         }
     }
 
-    *//**
+    /*
      * 根据rowkey从Hbase表中查询一行数据
      * @param hbaseConn             hbase连接对象
      * @param namespace             表空间
@@ -155,8 +155,8 @@ public class HBaseUtil {
      * @param clz                   将查询的一行数据 封装的类型
      * @param isUnderlineToCamel    是否将下划线转换为驼峰命名
      * @return
-     * @param <T>
-     *//*
+     * @param <T>*/
+
     public static <T>T getRow(Connection hbaseConn, String namespace, String tableName, String rowKey,Class<T> clz,boolean... isUnderlineToCamel){
         boolean defaultIsUToC = false;  // 默认不执行下划线转驼峰
 
@@ -188,14 +188,14 @@ public class HBaseUtil {
         return null;
     }
 
-    *//**
+    /**
      * 以异步的方式 从HBase维度表中查询维度数据
      * @param asyncConn     异步操作HBase的连接
      * @param namespace     表空间
      * @param tableName     表名
      * @param rowKey        rowkey
-     * @return
-     *//*
+     * @return*/
+
     public static JSONObject readDimAsync(AsyncConnection asyncConn,String namespace, String tableName, String rowKey){
         try {
             TableName tableNameObj = TableName.valueOf(namespace, tableName);
@@ -223,9 +223,9 @@ public class HBaseUtil {
         JSONObject jsonObj = getRow(hBaseConnection, Constant.HBASE_NAMESPACE, "dim_base_trademark", "1", JSONObject.class);
         System.out.println(jsonObj);
         closeHBaseConnection(hBaseConnection);
-    }*/
+    }
 
-    // 创建链接
+    /*// 创建链接
     public static Connection getHbaseConnection() throws IOException {
         Configuration conf = new Configuration();
         conf.set("hbase.zookeeper.quorum", "hadoop102, hadoop103, hadoop104");
@@ -314,7 +314,7 @@ public class HBaseUtil {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
+    }*/
 
 
 

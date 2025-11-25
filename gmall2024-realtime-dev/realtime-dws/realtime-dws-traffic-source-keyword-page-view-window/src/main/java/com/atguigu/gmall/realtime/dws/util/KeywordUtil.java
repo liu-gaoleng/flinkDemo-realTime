@@ -1,5 +1,6 @@
 package com.atguigu.gmall.realtime.dws.util;
 
+import org.apache.commons.lang3.builder.ToStringExclude;
 import org.wltea.analyzer.core.IKSegmenter;
 import org.wltea.analyzer.core.Lexeme;
 
@@ -30,6 +31,7 @@ public class KeywordUtil {
         }
         return keywordList;
     }
+
 
     public static void main(String[] args) {
         System.out.println(analyze("小米手机京东自营5G移动联通电信"));
