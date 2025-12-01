@@ -41,6 +41,172 @@ public class DwsUserUserLoginWindow extends BaseApp {
                 "dws_user_user_login_window",
                 Constant.TOPIC_DWD_TRAFFIC_PAGE
         );
+    }
+
+
+
+
+
+
+    @Override
+    public void handle(StreamExecutionEnvironment env, DataStreamSource<String> kafkaStrDS) {
+        //TODO 将流中的数据进行类型转换  jsonStr->jsonObj
+        SingleOutputStreamOperator<JSONObject> jsonObjDS = kafkaStrDS.map(JSON::parseObject);
+
+        //TODO 过滤出登录数据
+        SingleOutputStreamOperator<JSONObject> filterDS = jsonObjDS.filter(new FilterFunction<JSONObject>() {
+            @Override
+            public boolean filter(JSONObject jsonObject) throws Exception {
+                String uid = jsonObject.getJSONObject("common").getString("uid");
+                String lastPageId = jsonObject.getJSONObject("page").getString("last_page_id");
+                return StringUtils.isNotEmpty(uid) && ("login".equals(lastPageId) || StringUtils.isEmpty(lastPageId));
+            }
+        });
+
+        //TODO 指定watermark和事件时间字段
+        SingleOutputStreamOperator<JSONObject> withWatermarkDS = filterDS.assignTimestampsAndWatermarks(WatermarkStrategy
+                .<JSONObject>forMonotonousTimestamps()
+                .withTimestampAssigner(new SerializableTimestampAssigner<JSONObject>() {
+                    @Override
+                    public long extractTimestamp(JSONObject jsonObject, long l) {
+                        return jsonObject.getLong("ts");
+                    }
+                })
+        );
+
+        //TODO 按照uid进行分组
+        KeyedStream<JSONObject, String> keyedDS = withWatermarkDS.keyBy(jsonObject -> jsonObject.getJSONObject("common").getString("uid"));
+
+        //TODO 使用flink状态编程，判断是否为回流用户和独立用户
+        SingleOutputStreamOperator<UserLoginBean> beanDS = keyedDS.process(new KeyedProcessFunction<String, JSONObject, UserLoginBean>() {
+            private ValueState<String> lastLoginDateState;
+
+            @Override
+            public void open(Configuration parameters) throws Exception {
+                ValueStateDescriptor<String> valueStateDescriptor = new ValueStateDescriptor<String>("lastLoginDateState", String.class);
+                lastLoginDateState = getRuntimeContext().getState(valueStateDescriptor);
+            }
+
+            @Override
+            public void processElement(JSONObject jsonObject, KeyedProcessFunction<String, JSONObject, UserLoginBean>.Context context, Collector<UserLoginBean> collector) throws Exception {
+                //获取上次登录日期
+                String lastLoginDate = lastLoginDateState.value();
+                //获取当前登录日期
+                Long ts = jsonObject.getLong("ts");
+                String curLoginDate = DateFormatUtil.tsToDate(ts);
+
+                Long uuCt = 0L;
+                Long backCt = 0L;
+                if (StringUtils.isNotEmpty(lastLoginDate)) {
+                    //若状态中的末次登录日期不为 null，进一步判断。
+                    if (!lastLoginDate.equals(curLoginDate)) {
+                        //如果末次登录日期不等于当天日期则独立用户数 uuCt 记为 1，并将状态中的末次登录日期更新为当日，进一步判断。
+                        uuCt = 1L;
+                        lastLoginDateState.update(curLoginDate);
+                        //如果当天日期与末次登录日期之差大于等于8天则回流用户数backCt置为1。
+                        Long day = (ts - DateFormatUtil.dateToTs(lastLoginDate)) / 1000 / 60 / 60 / 24;
+                        if (day >= 8) {
+                            backCt = 1L;
+                        }
+                    }
+                } else {
+                    //如果状态中的末次登录日期为 null，将 uuCt 置为 1，backCt 置为 0，并将状态中的末次登录日期更新为当日。
+                    uuCt = 1L;
+                    lastLoginDateState.update(curLoginDate);
+                }
+
+                if (uuCt != 0L || backCt != 0L) {
+                    collector.collect(new UserLoginBean("", "", "", backCt, uuCt, ts));
+                }
+            }
+        });
+
+        //TODO 开窗
+        AllWindowedStream<UserLoginBean, TimeWindow> windowDS = beanDS.windowAll(TumblingEventTimeWindows.of(Time.seconds(10)));
+
+        //TODO 聚合
+        SingleOutputStreamOperator<UserLoginBean> reduceDS = windowDS.reduce(new ReduceFunction<UserLoginBean>() {
+                                                                               @Override
+                                                                               public UserLoginBean reduce(UserLoginBean value1, UserLoginBean value2) throws Exception {
+                                                                                   value1.setUuCt(value1.getUuCt() + value2.getUuCt());
+                                                                                   value1.setBackCt(value1.getBackCt() + value2.getBackCt());
+                                                                                   return value1;
+                                                                               }
+                                                                           },
+                new AllWindowFunction<UserLoginBean, UserLoginBean, TimeWindow>() {
+                    @Override
+                    public void apply(TimeWindow timeWindow, Iterable<UserLoginBean> iterable, Collector<UserLoginBean> collector) throws Exception {
+                        UserLoginBean bean = iterable.iterator().next();
+                        String stt = DateFormatUtil.tsToDateTime(timeWindow.getStart());
+                        String edt = DateFormatUtil.tsToDateTime(timeWindow.getEnd());
+                        String cyrDate = DateFormatUtil.tsToDate(timeWindow.getStart());
+                        bean.setStt(stt);
+                        bean.setEdt(edt);
+                        bean.setCurDate(cyrDate);
+                        collector.collect(bean);
+                    }
+                }
+        );
+
+        //TODO 将聚合后的结果写入到Doris表中
+        reduceDS.map(new BeanToJsonStrMapFunction<>())
+                .sinkTo(FlinkSinkUtil.getDorisSink("dws_user_user_login_window"));
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /*public static void main(String[] args) throws Exception {
+        new DwsUserUserLoginWindow().start(
+                10024,
+                4,
+                "dws_user_user_login_window",
+                Constant.TOPIC_DWD_TRAFFIC_PAGE
+        );
 
     }
     @Override
@@ -155,5 +321,5 @@ public class DwsUserUserLoginWindow extends BaseApp {
         reduceDS
                 .map(new BeanToJsonStrMapFunction<>())
                 .sinkTo(FlinkSinkUtil.getDorisSink("dws_user_user_login_window"));
-    }
+    }*/
 }
