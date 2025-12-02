@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class TradeSkuOrderBean {
+public  class TradeSkuOrderBean {
     // 窗口起始时间
     String stt;
     // 窗口结束时间

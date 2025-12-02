@@ -109,7 +109,7 @@ import java.util.*;
  *
  */
 public class DimApp extends BaseApp{
-    /*public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
         new DimApp().start(10002,4,"dim_app",Constant.TOPIC_DB);
     }
 
@@ -262,11 +262,11 @@ public class DimApp extends BaseApp{
 
         //jsonObjDS.print();
         return jsonObjDS;
-    }*/
+    }}
 
 
 
-    public static void main(String[] args) throws Exception {
+    /*public static void main(String[] args) throws Exception {
         new DimApp().start(10001, 4, "dim_app", Constant.TOPIC_DB);
     }
 
@@ -275,13 +275,13 @@ public class DimApp extends BaseApp{
         List<String> columnList = Arrays.asList(sinkColumns.split(","));
         Set<Map.Entry<String, Object>> entrySet = data.entrySet();
         // 使用迭代器删除
-        /*Iterator<Map.Entry<String, Object>> iterator = entrySet.iterator();
+        *//*Iterator<Map.Entry<String, Object>> iterator = entrySet.iterator();
         for(;iterator.hasNext();){
             Map.Entry<String, Object> next = iterator.next();
             if(!columnList.contains(next.getKey())){
                 iterator.remove();
             }
-        }*/
+        }*//*
         entrySet.removeIf(entry -> columnList.contains(entry.getKey()));
 
     }
@@ -415,4 +415,4 @@ public class DimApp extends BaseApp{
         });
         return jsonObjDS;
     }
-}
+}*/

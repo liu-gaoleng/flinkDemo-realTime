@@ -119,7 +119,7 @@ import java.util.concurrent.TimeUnit;
 public class DwsTradeSkuOrderWindow extends BaseApp {
     public static void main(String[] args) throws Exception {
         new DwsTradeSkuOrderWindow().start(
-                10029,
+                10086,
                 4,
                 "dws_trade_sku_order_window",
                 Constant.TOPIC_DWD_TRADE_ORDER_DETAIL

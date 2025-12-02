@@ -41,6 +41,71 @@ import java.util.concurrent.TimeUnit;
  */
 public class DwsTradeProvinceOrderWindow extends BaseApp {
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /*
+
     public static void main(String[] args) throws Exception {
         new DwsTradeProvinceOrderWindow().start(
                 10020,
@@ -196,5 +261,5 @@ public class DwsTradeProvinceOrderWindow extends BaseApp {
                 .map(new BeanToJsonStrMapFunction<>())
                 .sinkTo(FlinkSinkUtil.getDorisSink("dws_trade_province_order_window"));
 
-    }
+    }*/
 }
