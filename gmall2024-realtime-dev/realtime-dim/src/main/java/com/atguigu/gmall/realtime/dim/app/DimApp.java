@@ -109,7 +109,125 @@ import java.util.*;
  *
  */
 public class DimApp extends BaseApp{
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
+        try {
+            new DimApp().start(10001, 4, "dim_app", Constant.TOPIC_DB);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    protected void handle(StreamExecutionEnvironment env, DataStreamSource<String> kafkaStrDS) {
+        //TODO 对流中的数据进行类型转换 jsonStr->jsonObj 并进行简单的etl
+        SingleOutputStreamOperator<JSONObject> jsonObjDS = etl(kafkaStrDS);
+        //TODO 使用flinkCDC读取配置表中的配置信息
+        SingleOutputStreamOperator<TableProcessDim> tpDS = readTableProcess(env);
+        //TODO 根据配置表中的配置信息到Hbase中执行建表或删表操作
+        tpDS = creatHbaseTable(tpDS);
+        //TODO 过滤维度数据
+        //TODO 将维度数据同步到Hbase表中
+
+    }
+
+    private SingleOutputStreamOperator<TableProcessDim> creatHbaseTable(SingleOutputStreamOperator<TableProcessDim> tpDS) {
+            tpDS = tpDS.map(new RichMapFunction<TableProcessDim, TableProcessDim>() {
+            private Connection hbaseConn;
+
+            @Override
+            public void open(Configuration parameters) throws Exception {
+                hbaseConn = HBaseUtil.getHBaseConnection();
+            }
+
+            @Override
+            public void close() throws Exception {
+                HBaseUtil.closeHBaseConnection(hbaseConn);
+            }
+
+            @Override
+            public TableProcessDim map(TableProcessDim tp) throws Exception {
+                //获取对配置表进行操作的操作类型
+                String op = tp.getOp();
+                //获取Hbase中要维度表的表名
+                String sinkTable = tp.getSinkTable();
+                //获取在Hbase中建表的列族
+                String[] sinkFamily = tp.getSinkFamily().split(",");
+                if ("d".equals(op)) {
+                    //从配置表中删除了一条数据 将Hbase中对应的维度表删除
+                    HBaseUtil.dropHBaseTable(hbaseConn, Constant.HBASE_NAMESPACE, sinkTable);
+                } else if ("c".equals(op) || "r".equals(op)) {
+                    //从配置表中新增或读取一条数据 在Hbase中执行建表
+                    HBaseUtil.createHBaseTable(hbaseConn, Constant.HBASE_NAMESPACE, sinkTable, sinkFamily);
+                } else {
+                    //从配置表中修改了一条数据 先将Hbase中对应的表删除 再创建
+                    HBaseUtil.dropHBaseTable(hbaseConn, Constant.HBASE_NAMESPACE, sinkTable);
+                    HBaseUtil.createHBaseTable(hbaseConn, Constant.HBASE_NAMESPACE, sinkTable, sinkFamily);
+                }
+                return tp;
+            }
+        }).setParallelism(1);
+        return tpDS;
+    }
+
+    private SingleOutputStreamOperator<TableProcessDim> readTableProcess(StreamExecutionEnvironment env) {
+
+        //创建mysqlsource对象
+        MySqlSource<String> mySqlSource = FlinkSourceUtil.getMySqlSource("gmall2024_config", "table_process_dim");
+        //读取数据封装为流
+        DataStreamSource<String> mysqlStrDS = env.fromSource(mySqlSource, WatermarkStrategy.noWatermarks(), "mysql_source").setParallelism(1);
+        //对流中的数据进行类型转换 jsonStr->实体类对象
+        SingleOutputStreamOperator<TableProcessDim> tpDS = mysqlStrDS.map(new MapFunction<String, TableProcessDim>() {
+            @Override
+            public TableProcessDim map(String jsonStr) throws Exception {
+                //为了处理方便，先将jsonStr转换为jsonObj
+                JSONObject jsonObj = JSON.parseObject(jsonStr);
+                String op = jsonObj.getString("op");
+                TableProcessDim tableProcessDim = null;
+                if ("d".equals(op)) {
+                    //对表进行了一次删除操作，从before中获取删除前的配置信息
+                    tableProcessDim = jsonObj.getObject("before", TableProcessDim.class);
+                } else {
+                    //对表今进行了读取、添加、修改操作，从after中获取最新的配置信息
+                    tableProcessDim = jsonObj.getObject("after", TableProcessDim.class);
+                }
+                tableProcessDim.setOp(op);
+                return tableProcessDim;
+            }
+        }).setParallelism(1);
+        return tpDS;
+
+    }
+
+    private SingleOutputStreamOperator<JSONObject> etl(DataStreamSource<String> kafkaStrDS) {
+        SingleOutputStreamOperator<JSONObject> jsonObjDS = kafkaStrDS.process(new ProcessFunction<String, JSONObject>() {
+            @Override
+            public void processElement(String jsonStr, ProcessFunction<String, JSONObject>.Context context, Collector<JSONObject> collector) throws Exception {
+                JSONObject jsonObj = JSON.parseObject(jsonStr);
+                String db = jsonObj.getString("database");
+                String type = jsonObj.getString("type");
+                String data = jsonObj.getString("data");
+                if ("gmall2024".equals(db) && ("insert".equals(type) || "update".equals(type) || "delete".equals(type) || "bootstrap-insert".equals(type)) && data != null && data.length() > 2) {
+                    collector.collect(jsonObj);
+                }
+            }
+        });
+        return jsonObjDS;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /*public static void main(String[] args) throws Exception {
         new DimApp().start(10002,4,"dim_app",Constant.TOPIC_DB);
     }
 
@@ -262,9 +380,10 @@ public class DimApp extends BaseApp{
 
         //jsonObjDS.print();
         return jsonObjDS;
-    }}
+    }}*/
 
 
+// ===================================================截至
 
     /*public static void main(String[] args) throws Exception {
         new DimApp().start(10001, 4, "dim_app", Constant.TOPIC_DB);
