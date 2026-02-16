@@ -59,6 +59,8 @@ public class DwdBaseLog extends BaseApp {
         new DwdBaseLog().start(10011, 4, "dwd_base_log", Constant.TOPIC_LOG);
     }
 
+    // test
+    // test dev
 
     @Override
     public void handle(StreamExecutionEnvironment env, DataStreamSource<String> kafkaStrDS) {
