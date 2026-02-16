@@ -5,13 +5,18 @@ import com.ververica.cdc.connectors.mysql.source.MySqlSource;
 import com.ververica.cdc.connectors.mysql.table.StartupOptions;
 import com.ververica.cdc.debezium.JsonDebeziumDeserializationSchema;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
+import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.connector.kafka.source.KafkaSource;
+import org.apache.flink.connector.kafka.source.KafkaSourceBuilder;
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.protocol.types.Field;
 
 import java.io.IOException;
 import java.util.Properties;
+
+import static java.util.stream.IntStream.builder;
 
 /**
  * @author Felix
@@ -20,7 +25,7 @@ import java.util.Properties;
  */
 public class FlinkSourceUtil {
     //获取KafkaSource
-    public static KafkaSource<String> getKafkaSource(String topic,String groupId){
+    /*public static KafkaSource<String> getKafkaSource(String topic,String groupId){
         KafkaSource<String> kafkaSource = KafkaSource.<String>builder()
                 .setBootstrapServers(Constant.KAFKA_BROKERS)
                 .setTopics(topic)
@@ -56,10 +61,40 @@ public class FlinkSourceUtil {
                 )
                 .build();
         return kafkaSource;
+    }*/
+    // TODO 获取kafkaSource
+    public static KafkaSource<String> getKafkaSource(String topic, String groupId){
+        KafkaSource<String> kafkaSource = KafkaSource.<String>builder()
+                .setBootstrapServers(Constant.KAFKA_BROKERS)
+                .setTopics(topic)
+                .setGroupId(groupId)
+                .setProperty(ConsumerConfig.ISOLATION_LEVEL_DOC, "red_committed")
+                .setStartingOffsets(OffsetsInitializer.latest())
+                .setValueOnlyDeserializer(new DeserializationSchema<String>() {
+                    @Override
+                    public String deserialize(byte[] bytes) throws IOException {
+                        if (bytes != null) {
+                            return new String(bytes);
+                        }
+                        return null;
+                    }
+
+                    @Override
+                    public boolean isEndOfStream(String s) {
+                        return false;
+                    }
+
+                    @Override
+                    public TypeInformation<String> getProducedType() {
+                        return TypeInformation.of(String.class);
+                    }
+                }).build();
+        return kafkaSource;
     }
 
+
     //获取MySqlSource
-    public static MySqlSource<String> getMySqlSource(String database,String tableName){
+    /*public static MySqlSource<String> getMySqlSource(String database,String tableName){
         Properties props = new Properties();
         props.setProperty("useSSL", "false");
         props.setProperty("allowPublicKeyRetrieval", "true");
@@ -76,5 +111,25 @@ public class FlinkSourceUtil {
                 .jdbcProperties(props)
                 .build();
         return mySqlSource;
+    }*/
+    // TODO 获取mySqlSource
+    public static MySqlSource<String> getMySqlSource(String database, String tableName){
+        Properties props = new Properties();
+        props.setProperty("useSSL", "false");
+        props.setProperty("allowPublicKeyRetrieval", "true");
+
+        MySqlSource<String> mySqlSource = MySqlSource.<String>builder()
+                .hostname(Constant.MYSQL_HOST)
+                .port(Constant.MYSQL_PORT)
+                .databaseList(database)
+                .tableList(database + "." + tableName)
+                .username(Constant.MYSQL_USER_NAME)
+                .password(Constant.MYSQL_PASSWORD)
+                .deserializer(new JsonDebeziumDeserializationSchema())
+                .startupOptions(StartupOptions.initial())
+                .jdbcProperties(props)
+                .build();
+        return mySqlSource;
+
     }
 }
