@@ -80,7 +80,7 @@ public abstract class BaseApp {
         env.getCheckpointConfig().setExternalizedCheckpointCleanup(CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
         //2.4 设置两个检查点之间的最小时间间隔
         env.getCheckpointConfig().setMinPauseBetweenCheckpoints(2000L);
-        //2.5 设置重启策略
+        //2.5 设置重启策略 失败重启
         env.setRestartStrategy(RestartStrategies.failureRateRestart(3, Time.days(30), Time.seconds(3)));
         //2.6 设置状态后端以及检查点存储路径
         env.setStateBackend(new HashMapStateBackend());

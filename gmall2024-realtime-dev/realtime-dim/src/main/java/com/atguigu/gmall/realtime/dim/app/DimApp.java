@@ -126,8 +126,32 @@ public class DimApp extends BaseApp{
         //TODO 根据配置表中的配置信息到Hbase中执行建表或删表操作
         tpDS = creatHbaseTable(tpDS);
         //TODO 过滤维度数据
+        SingleOutputStreamOperator<Tuple2<JSONObject, TableProcessDim>> dimDS = connect(tpDS, jsonObjDS);
         //TODO 将维度数据同步到Hbase表中
+        dimDS.print();
+        writeToHBase(dimDS);
 
+
+    }
+
+    private static SingleOutputStreamOperator<Tuple2<JSONObject, TableProcessDim>> connect(SingleOutputStreamOperator<TableProcessDim> tpDS, SingleOutputStreamOperator<JSONObject> jsonObjDS) {
+        //将配置流中的配置信息进行广播---broadcast
+        MapStateDescriptor<String, TableProcessDim> mapStateDescriptor
+                = new MapStateDescriptor<String, TableProcessDim>("mapStateDescriptor",String.class, TableProcessDim.class);
+        BroadcastStream<TableProcessDim> broadcastDS = tpDS.broadcast(mapStateDescriptor);
+
+        //将主流业务数据和广播流配置信息进行关联---connect
+        BroadcastConnectedStream<JSONObject, TableProcessDim> connectDS = jsonObjDS.connect(broadcastDS);
+
+        //处理关联后的数据(判断是否为维度)
+        SingleOutputStreamOperator<Tuple2<JSONObject,TableProcessDim>> dimDS = connectDS.process(
+                new TableProcessFunction(mapStateDescriptor)
+        );
+        return dimDS;
+    }
+
+    private static void writeToHBase(SingleOutputStreamOperator<Tuple2<JSONObject, TableProcessDim>> dimDS) {
+        dimDS.addSink(new HBaseSinkFunction());
     }
 
     private SingleOutputStreamOperator<TableProcessDim> creatHbaseTable(SingleOutputStreamOperator<TableProcessDim> tpDS) {
@@ -485,7 +509,7 @@ public class DimApp extends BaseApp{
         return tpDS;
     }
 
-    private SingleOutputStreamOperator<TableProcessDim> resdTableProcess(StreamExecutionEnvironment env) {
+    private SingleOutputStreamOperator<TableProcessDim> readTableProcess(StreamExecutionEnvironment env) {
         //5.1 创建MysqlSource对象
         MySqlSource<String> mySqlSource = FlinkSourceUtil.getMySqlSource("gmall2024_config", "gmall2024_config.table_process_dim");
         //5.2 消费数据，封装为流
