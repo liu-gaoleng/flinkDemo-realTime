@@ -70,6 +70,7 @@ public class FlinkSourceUtil {
                 .setGroupId(groupId)
                 .setProperty(ConsumerConfig.ISOLATION_LEVEL_DOC, "red_committed")
                 .setStartingOffsets(OffsetsInitializer.latest())
+                // 重写序列化方式
                 .setValueOnlyDeserializer(new DeserializationSchema<String>() {
                     @Override
                     public String deserialize(byte[] bytes) throws IOException {
